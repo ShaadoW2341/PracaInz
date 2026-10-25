@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+docs/
+*.md
+*.markdown
+*.mdx
+*.zip
+*.bak
+node_modules/
+dist/
+target/
+*.tsbuildinfo
+*.log
+.idea/
+.vscode/
+uploads/
