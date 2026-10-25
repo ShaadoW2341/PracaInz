@@ -5,8 +5,8 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('healthcheck API', () => {
   it('odczytuje stan backendu i bazy', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'UP', application: 'MycoMap', stage: 0 }))));
-    await expect(fetchHealth()).resolves.toEqual({ status: 'UP', application: 'MycoMap', stage: 0 });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: 'UP', application: 'MycoMap', stage: 1 }))));
+    await expect(fetchHealth()).resolves.toEqual({ status: 'UP', application: 'MycoMap', stage: 1 });
   });
   it('nie traktuje błędu HTTP jako działającego API', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 503 })));

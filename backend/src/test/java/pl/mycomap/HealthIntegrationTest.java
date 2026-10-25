@@ -41,7 +41,7 @@ class HealthIntegrationTest {
         mvc.perform(get("/api/health")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("UP"));
         assertThat(jdbc.queryForObject("SELECT PostGIS_Version()", String.class)).isNotBlank();
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM flyway_schema_history WHERE success", Integer.class)).isEqualTo(3);
     }
 
     @Test

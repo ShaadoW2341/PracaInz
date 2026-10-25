@@ -5,7 +5,7 @@ export async function fetchHealth(): Promise<Health> {
   if (!response.ok) throw new Error('Nie udało się połączyć z API i bazą danych.');
   const body: unknown = await response.json();
   if (typeof body !== 'object' || body === null || !('status' in body) || body.status !== 'UP'
-      || !('application' in body) || body.application !== 'MycoMap' || !('stage' in body) || body.stage !== 0) {
+      || !('application' in body) || body.application !== 'MycoMap' || !('stage' in body) || body.stage !== 1) {
     throw new Error('Nieoczekiwana odpowiedź serwera.');
   }
   return body as Health;

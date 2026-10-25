@@ -11,6 +11,21 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
+    properties:
+      mail.smtp:
+        auth: ${MAIL_AUTH:false}
+        starttls.enable: ${MAIL_STARTTLS:false}
+        starttls.required: ${MAIL_STARTTLS:false}
+        ssl.enable: ${MAIL_SSL:false}
+        connectiontimeout: 5000
+        timeout: 5000
+        writetimeout: 5000
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 server:
@@ -23,6 +38,9 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
         same-site: lax
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
@@ -30,3 +48,9 @@ management:
   endpoint:
     health:
       show-details: never
+logging:
+  level:
+    org.hibernate.engine.jdbc.spi.SqlExceptionHelper: OFF
+app:
+  public-url: ${APP_PUBLIC_URL:http://127.0.0.1:5173}
+  mail-from: ${MAIL_FROM:no-reply@mycomap.local}

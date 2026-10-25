@@ -4,9 +4,22 @@ import { MapPreview } from '../components/MapPreview';
 import { Icon } from '../components/Icon';
 import { Forest } from '../components/Forest';
 import { MushroomIllustration } from '../components/MushroomIllustration';
+import { useState } from 'react';
+import { useAuth } from '../features/auth/AuthProvider';
 
 export function Home() {
+  const auth = useAuth();
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   const health = useQuery({ queryKey: ['health'], queryFn: fetchHealth, retry: false, refetchInterval: 30000 });
+
+  async function logout() {
+    setLoggingOut(true);
+    setLogoutError('');
+    try { await auth.logout(); }
+    catch (cause) { setLogoutError(cause instanceof Error ? cause.message : 'Nie udało się wylogować. Spróbuj ponownie.'); }
+    finally { setLoggingOut(false); }
+  }
 
   return <div className="dashboard-shell">
     <aside className="sidebar">
@@ -34,11 +47,13 @@ export function Home() {
         <div className="topbar-right">
           <span className="preview-badge">Podgląd interfejsu</span><span className="topbar-divider" />
           <span className="profile-avatar"><Icon name="leaf" size={18} /></span>
-          <span className="profile-name">Twoja przestrzeń<small>MycoMap</small></span>
+          <span className="profile-name">{auth.user?.username}<small>Twoja przestrzeń</small></span>
+          <button className="logout-button" onClick={() => void logout()} disabled={loggingOut}>{loggingOut ? 'Wylogowywanie…' : 'Wyloguj się'}</button>
         </div>
       </header>
 
       <main className="dashboard-main">
+        {logoutError && <p className="auth-error" role="alert">{logoutError}</p>}
         <section className="page-heading">
           <div><p className="eyebrow">BLISKO NATURY, BLISKO WSPOMNIEŃ</p>
             <h1>Twoje leśne ścieżki<span>.</span></h1>
@@ -127,7 +142,7 @@ export function Home() {
             <span>{health.isPending ? 'Sprawdzanie połączenia…' : health.isError ? 'Backend niedostępny' : 'API i baza danych gotowe'}</span>
             <button className="refresh-button" aria-label="Sprawdź połączenie ponownie" onClick={() => void health.refetch()} disabled={health.isFetching}><Icon name="refresh" size={13} /></button>
           </div>
-          <span>MycoMap · Projekt inżynierski <span className="footer-separator">/</span> Etap 0</span>
+          <span>MycoMap · Projekt inżynierski <span className="footer-separator">/</span> Etap 1</span>
         </footer>
       </main>
     </div>
