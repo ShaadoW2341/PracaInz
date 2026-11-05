@@ -146,7 +146,7 @@ class AuthIntegrationTest {
         MockHttpSession session = (MockHttpSession) login.getRequest().getSession(false);
         assertThat(session).isNotNull();
         mvc.perform(get("/api/auth/me").session(session)).andExpect(status().isOk()).andExpect(jsonPath("$.email").value(name + "@example.com"));
-        mvc.perform(get("/api/maps").session(session)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin").session(session)).andExpect(status().isForbidden());
         mvc.perform(post("/api/auth/logout").session(session).with(csrf())).andExpect(status().isNoContent());
         assertThat(session.isInvalid()).isTrue();
         mvc.perform(get("/api/auth/me")).andExpect(status().isUnauthorized());

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from '../app/App';
+vi.mock('../features/maps/InteractiveMap', () => ({ InteractiveMap: () => <div aria-label="Mapa Twoich znalezisk" /> }));
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -17,7 +18,11 @@ function server() {
   const mock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/auth/me') return Response.json(authenticated ? user : { code: 'UNAUTHENTICATED' }, { status: authenticated ? 200 : 401 });
     if (url === '/api/auth/csrf') return Response.json({ token: 'test-csrf', headerName: 'X-CSRF-TOKEN' });
-    if (url === '/api/health') return Response.json({ status: 'UP', application: 'MycoMap', stage: 1 });
+    if (url === '/api/health') return Response.json({ status: 'UP', application: 'MycoMap', stage: 2 });
+    if (url === '/api/species') return Response.json([{id:1,polishName:'Nieznany',latinName:null}]);
+    if (url.startsWith('/api/maps?')) return Response.json({items:[{id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0}],total:1,page:0,size:50});
+    if (url === '/api/maps/test-map') return Response.json({id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0});
+    if (url.startsWith('/api/maps/test-map/observations')) return Response.json({items:[],total:0,page:0,size:20});
     if (url === '/api/auth/login') {
       expect(new Headers(init?.headers).get('X-CSRF-TOKEN')).toBe('test-csrf');
       if (JSON.parse(init?.body as string).password === 'bad-password') {

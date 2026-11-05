@@ -14,8 +14,10 @@ public class AuthService {
     private final UserRepository users;
     private final PasswordEncoder encoder;
     private final EmailVerificationService verification;
-    public AuthService(UserRepository users, PasswordEncoder encoder, EmailVerificationService verification) {
+    private final pl.mycomap.mushroommap.MapService maps;
+    public AuthService(UserRepository users, PasswordEncoder encoder, EmailVerificationService verification, pl.mycomap.mushroommap.MapService maps) {
         this.users = users; this.encoder = encoder; this.verification = verification;
+        this.maps = maps;
     }
 
     @Transactional
@@ -25,6 +27,7 @@ public class AuthService {
             throw new ApiException(HttpStatus.CONFLICT, "ACCOUNT_EXISTS", "Nazwa użytkownika lub e-mail są już zajęte.");
         }
         var user = users.saveAndFlush(new AppUser(request.username(), request.email(), encoder.encode(request.password())));
+        maps.ensureDefault(user.getId());
         verification.send(user);
         return AuthDtos.UserResponse.from(user);
     }

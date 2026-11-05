@@ -19,12 +19,12 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   return response.json() as Promise<T>;
 }
 
-export async function mutate<T>(path: string, body?: unknown): Promise<T> {
+export async function mutate<T>(path: string, body?: unknown, method: 'POST' | 'PATCH' | 'DELETE' = 'POST'): Promise<T> {
   // Token jest pobierany przed każdą mutacją, również po zmianie sesji i po CSRF_INVALID.
   // Nie ponawiamy automatycznie POST — operacja mogła zostać już wykonana przed błędem sieci.
   const csrf = await request<{ token: string; headerName: string }>('/api/auth/csrf');
   return request<T>(path, {
-    method: 'POST',
+    method,
     headers: { 'Content-Type': 'application/json', [csrf.headerName]: csrf.token },
     body: body === undefined ? undefined : JSON.stringify(body),
   });

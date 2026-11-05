@@ -14,6 +14,8 @@ import java.util.LinkedHashMap;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class, org.springframework.web.bind.MissingServletRequestParameterException.class})
+    ResponseEntity<ApiError> invalidParameter() { return ResponseEntity.badRequest().body(new ApiError("VALIDATION_ERROR", "Nieprawidłowy parametr żądania.")); }
     @ExceptionHandler(ApiException.class)
     ResponseEntity<ApiError> handle(ApiException e) { return ResponseEntity.status(e.status()).body(e.error()); }
 

@@ -13,6 +13,8 @@ export function App() {
     <Route path="/verify-email" element={<EmailVerificationPage />} />
     <Route element={<ProtectedRoute />}>
       <Route path="/app" element={<Home />} />
+      <Route path="/app/maps" element={<Home />} />
+      <Route path="/app/maps/:id" element={<Home />} />
     </Route>
     <Route path="*" element={<main className="not-found"><p className="eyebrow">404 / POZA SZLAKIEM</p><h1>Tego miejsca nie ma na mapie.</h1><Link to="/app">Wróć na początek →</Link></main>} />
   </Routes></AuthProvider>;
