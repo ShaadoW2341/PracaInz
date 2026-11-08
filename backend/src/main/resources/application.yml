@@ -11,6 +11,11 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 26MB
+      file-size-threshold: 0
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}

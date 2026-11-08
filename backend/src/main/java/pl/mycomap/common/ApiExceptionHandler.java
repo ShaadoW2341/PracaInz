@@ -14,6 +14,14 @@ import java.util.LinkedHashMap;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    ResponseEntity<ApiError> uploadTooLarge() {
+        return ResponseEntity.status(413).body(new ApiError("PHOTO_TOO_LARGE", "Zdjęcie może mieć maksymalnie 5 MB, a całe żądanie 26 MB."));
+    }
+    @ExceptionHandler({org.springframework.web.multipart.MultipartException.class, org.springframework.web.multipart.support.MissingServletRequestPartException.class})
+    ResponseEntity<ApiError> invalidUpload() {
+        return ResponseEntity.badRequest().body(new ApiError("PHOTO_INVALID", "Wybierz zdjęcia JPG lub PNG do przesłania."));
+    }
     @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class, org.springframework.web.bind.MissingServletRequestParameterException.class})
     ResponseEntity<ApiError> invalidParameter() { return ResponseEntity.badRequest().body(new ApiError("VALIDATION_ERROR", "Nieprawidłowy parametr żądania.")); }
     @ExceptionHandler(ApiException.class)

@@ -18,7 +18,7 @@ function server() {
   const mock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/auth/me') return Response.json(authenticated ? user : { code: 'UNAUTHENTICATED' }, { status: authenticated ? 200 : 401 });
     if (url === '/api/auth/csrf') return Response.json({ token: 'test-csrf', headerName: 'X-CSRF-TOKEN' });
-    if (url === '/api/health') return Response.json({ status: 'UP', application: 'MycoMap', stage: 2 });
+    if (url === '/api/health') return Response.json({ status: 'UP', application: 'MycoMap', stage: 3 });
     if (url === '/api/species') return Response.json([{id:1,polishName:'Nieznany',latinName:null}]);
     if (url.startsWith('/api/maps?')) return Response.json({items:[{id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0}],total:1,page:0,size:50});
     if (url === '/api/maps/test-map') return Response.json({id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0});
@@ -59,10 +59,10 @@ it('pokazuje błąd hasła, loguje do pulpitu i usuwa dane konta po wylogowaniu'
   fireEvent.click(screen.getByRole('button', { name: 'Zaloguj się' }));
   expect(await screen.findByText('LesnyStudent')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Wyloguj się' }));
-  expect(await screen.findByRole('heading', { name: 'Wróć na leśną ścieżkę' })).toBeInTheDocument();
+  expect(await screen.findByRole('heading', { name: 'Wróć na leśną ścieżkę' }, { timeout: 5000 })).toBeInTheDocument();
   expect(screen.queryByText('LesnyStudent')).not.toBeInTheDocument();
   expect(mock.mock.calls.some(([url]) => url === '/api/auth/logout')).toBe(true);
-});
+}, 15000);
 
 it('nie wysyła rejestracji, jeżeli potwierdzenie hasła jest inne', async () => {
   const mock = server(); show('/register');

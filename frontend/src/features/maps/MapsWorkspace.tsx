@@ -9,6 +9,8 @@ import { ApiError } from '../../api/http';
 import { InteractiveMap } from './InteractiveMap';
 import { MapForm } from './MapForm';
 import { ObservationForm, type Coordinates } from './ObservationForm';
+import { PhotoGallery } from '../photos/PhotoGallery';
+import { EditorDialog } from '../../components/EditorDialog';
 import * as api from './api';
 
 const emptyFilters:api.Filters={speciesId:'',from:'',to:''};
@@ -28,6 +30,7 @@ export function MapsWorkspace() {
   const [selectedId,setSelectedId]=useState<string>();
   const selected=useQuery({queryKey:['maps','observation',selectedId],queryFn:()=>api.getObservation(selectedId!),enabled:!!selectedId});
   const [editor,setEditor]=useState<'observation'|'map'|null>(null);
+  const [editorPending,setEditorPending]=useState(false);
   const [editingObservation,setEditingObservation]=useState<api.Observation>();
   const [editingMap,setEditingMap]=useState<api.MushroomMap>();
   const [coordinates,setCoordinates]=useState<Coordinates>();
@@ -37,6 +40,7 @@ export function MapsWorkspace() {
   useEffect(() => {
     setSelectedId(undefined);
     setEditor(null);
+    setEditorPending(false);
     setConfirmation(null);
     setPage(0);
     setFilters(emptyFilters);
@@ -47,8 +51,9 @@ export function MapsWorkspace() {
     else if(confirmation==='observation' && selectedId)await api.deleteObservation(selectedId);
   },onSuccess:()=>{setSelectedId(undefined);setConfirmation(null);setEditor(null);setPage(0);setMapPage(0);void client.invalidateQueries({queryKey:['maps']});}});
 
-  function switchMap(value:string){navigate('/app/maps/'+value);setSelectedId(undefined);setEditor(null);setConfirmation(null);setPage(0);setFilters(emptyFilters);}
-  function pick(point?:Coordinates){setCoordinates(point);setEditingObservation(undefined);setEditor('observation');setSelectedId(undefined);setDraftKey(v=>v+1);}
+  function closeEditor(){setEditor(null);setEditorPending(false);}
+  function switchMap(value:string){navigate('/app/maps/'+value);setSelectedId(undefined);closeEditor();setConfirmation(null);setPage(0);setFilters(emptyFilters);}
+  function pick(point?:Coordinates){setCoordinates(point);setEditingObservation(undefined);setEditor('observation');setDraftKey(v=>v+1);}
   function select(value:string){setSelectedId(value);setEditor(null);setConfirmation(null);}
   function filter(value:Partial<api.Filters>){setFilters({...filters,...value});setPage(0);}
   const failed=[maps.error,selectedMap.error,species.error,list.error,features.error,selected.error].find(Boolean);
@@ -71,7 +76,7 @@ export function MapsWorkspace() {
       <section className="map-section"><div className="map-toolbar"><div className="map-title"><Icon name="map" /><h2>{selectedMap.data?.name ?? 'Twoja mapa'}</h2></div><button className="auth-submit compact-button" disabled={!selectedMap.data || species.isPending} onClick={()=>pick()}>Dodaj znalezisko</button></div>
         {selectedMap.data?.description && <p className="map-description">{selectedMap.data.description}</p>}
         <div className="filter-bar live-filters"><label>Gatunek<select value={filters.speciesId} onChange={e=>filter({speciesId:e.target.value})}><option value="">Wszystkie gatunki</option>{species.data?.map(s=><option key={s.id} value={s.id}>{s.polishName}</option>)}</select></label><label>Od<input type="date" value={filters.from} onChange={e=>filter({from:e.target.value})} /></label><label>Do<input type="date" value={filters.to} onChange={e=>filter({to:e.target.value})} /></label><button className="text-button" onClick={()=>{setFilters(emptyFilters);setPage(0);}}>Wyczyść</button></div>
-        <InteractiveMap data={features.data} selectedId={selectedId} focus={detail} onPick={point=>{if(selectedMap.data)pick(point);}} onSelect={select} onBounds={setBbox} />
+        <InteractiveMap mapId={id} data={features.data} selectedId={selectedId} focus={detail} onPick={point=>{if(selectedMap.data)pick(point);}} onSelect={select} onBounds={setBbox} />
         <div className="map-footer"><span>{features.isFetching ? 'Wczytywanie punktów…' : `${features.data?.features.length ?? 0} punktów w widocznym obszarze`}</span><span><Icon name="lock" size={12} /> Tylko dla Ciebie</span></div>
         {(!bbox || features.data?.truncated) && <p className="stage-note">Przybliż mapę, aby zobaczyć wszystkie punkty. Jednorazowo wyświetlamy maksymalnie 1000 obserwacji.</p>}
       </section>
@@ -82,13 +87,30 @@ export function MapsWorkspace() {
         {list.data && list.data.total>20 && <div className="pagination"><button disabled={page===0} onClick={()=>setPage(v=>v-1)}>Poprzednia</button><span>Strona {page+1} z {Math.ceil(list.data.total/20)}</span><button disabled={(page+1)*20>=list.data.total} onClick={()=>setPage(v=>v+1)}>Następna</button></div>}
       </section>
     </div><aside className="detail-column">
-      {confirmation && <section className="card editor-card"><h2>{confirmation==='map'?'Usunąć mapę i wszystkie jej znaleziska?':'Usunąć to znalezisko?'}</h2><p className="map-description">Tej operacji nie można cofnąć.</p>{deletion.error && <p className="form-alert" role="alert">{deletion.error.message}</p>}<div className="action-row"><button className="danger-button" disabled={deletion.isPending} onClick={()=>deletion.mutate()}>{deletion.isPending?'Usuwanie…':'Potwierdź usunięcie'}</button><button className="text-button" disabled={deletion.isPending} onClick={()=>setConfirmation(null)}>Anuluj</button></div></section>}
-      {editor==='map' && <MapForm key={editingMap?.id ?? 'new-map'} initial={editingMap} onClose={()=>setEditor(null)} onSaved={result=>{switchMap(result.id);setMapPage(0);}} />}
-      {editor==='observation' && id && <ObservationForm key={draftKey} mapId={id} species={species.data ?? []} initial={editingObservation} coordinates={coordinates} onClose={()=>setEditor(null)} onSaved={result=>{setEditor(null);setSelectedId(result.id);void client.invalidateQueries({queryKey:['maps']});}} />}
-      {!editor && detail && <section className="card observation-card"><div className="card-heading"><h2>Szczegóły znaleziska</h2><button className="text-button" onClick={()=>setSelectedId(undefined)}>Zamknij</button></div><span className="detail-mushroom"><Icon name="mushroom" size={36} /></span><h3 className="observation-name">{detail.speciesName}</h3>{detail.latinName && <p className="latin-name">{detail.latinName}</p>}<dl className="observation-data"><dt>Data znalezienia</dt><dd>{detail.observedOn}</dd><dt>Liczba sztuk</dt><dd>{detail.quantity}</dd><dt>Współrzędne GPS</dt><dd>{detail.latitude.toFixed(6)}, {detail.longitude.toFixed(6)}</dd><dt>Notatka</dt><dd className="observation-note">{detail.description || 'Brak notatki'}</dd></dl><div className="action-row"><button className="secondary-button" onClick={()=>{setEditingObservation(detail);setEditor('observation');setDraftKey(v=>v+1);}}>Edytuj</button><button className="text-button danger" onClick={()=>{setConfirmation('observation');deletion.reset();}}>Usuń</button></div></section>}
-      {!editor && !detail && <section className="card observation-card"><div className="card-heading"><h2>Szczegóły znaleziska</h2><Icon name="pin" size={18} /></div><MushroomIllustration /><div className="observation-empty"><h3>Każde odkrycie ma historię</h3><p>Wybierz znacznik lub wpis na liście, aby zobaczyć szczegóły. Kliknij puste miejsce na mapie, aby dodać nowe znalezisko.</p></div></section>}
+      {detail && <section className="card observation-card"><div className="card-heading"><h2>Szczegóły znaleziska</h2><button className="text-button" onClick={()=>setSelectedId(undefined)}>Zamknij</button></div><span className="detail-mushroom"><Icon name="mushroom" size={36} /></span><h3 className="observation-name">{detail.speciesName}</h3>{detail.latinName && <p className="latin-name">{detail.latinName}</p>}<dl className="observation-data"><dt>Data znalezienia</dt><dd>{detail.observedOn}</dd><dt>Liczba sztuk</dt><dd>{detail.quantity}</dd><dt>Współrzędne GPS</dt><dd>{detail.latitude.toFixed(6)}, {detail.longitude.toFixed(6)}</dd><dt>Notatka</dt><dd className="observation-note">{detail.description || 'Brak notatki'}</dd></dl><div className="action-row"><button className="secondary-button" onClick={()=>{setEditingObservation(detail);setEditor('observation');setDraftKey(v=>v+1);}}>Edytuj</button><button className="text-button danger" onClick={()=>{setConfirmation('observation');deletion.reset();}}>Usuń</button></div></section>}
+      {!detail && <section className="card observation-card"><div className="card-heading"><h2>Szczegóły znaleziska</h2><Icon name="pin" size={18} /></div><MushroomIllustration /><div className="observation-empty"><h3>Każde odkrycie ma historię</h3><p>Wybierz znacznik lub wpis na liście, aby zobaczyć szczegóły. Kliknij puste miejsce na mapie, aby dodać nowe znalezisko.</p></div></section>}
+      {detail && <section className="card observation-card"><PhotoGallery key={detail.id} observationId={detail.id} /></section>}
       <section className="privacy-card" id="privacy"><Icon name="lock" /><div><h3>Twoje miejsca. Twoje zasady.</h3><p>Te mapy i dokładne współrzędne są dostępne wyłącznie na Twoim koncie. Słownik gatunków nie służy ocenie jadalności.</p></div></section>
     </aside></div>
     <footer className="dashboard-footer"><span>MycoMap · Twój leśny dziennik</span><span>Zachowaj swoje odkrycia na mapie.</span></footer>
-  </main></div></div>;
+  </main></div>
+    {editor==='map' && <EditorDialog label={editingMap ? 'Ustawienia mapy' : 'Nowa mapa'} busy={editorPending} onClose={closeEditor}>
+      <MapForm key={editingMap?.id ?? 'new-map'} initial={editingMap} onClose={closeEditor} onPendingChange={setEditorPending}
+        onSaved={result=>{switchMap(result.id);setMapPage(0);}} />
+    </EditorDialog>}
+    {editor==='observation' && id && <EditorDialog label={editingObservation ? 'Edytuj znalezisko' : 'Nowe znalezisko'} busy={editorPending} onClose={closeEditor}>
+      <ObservationForm key={draftKey} mapId={id} species={species.data ?? []} initial={editingObservation} coordinates={coordinates}
+        onClose={closeEditor} onPendingChange={setEditorPending}
+        onSaved={result=>{closeEditor();setSelectedId(result.id);void client.invalidateQueries({queryKey:['maps']});}} />
+    </EditorDialog>}
+    {confirmation && <EditorDialog label="Potwierdź usunięcie" busy={deletion.isPending} onClose={()=>setConfirmation(null)}>
+      <section className="card editor-card"><h2>{confirmation==='map'?'Usunąć mapę i wszystkie jej znaleziska?':'Usunąć to znalezisko?'}</h2>
+        <p className="map-description">Tej operacji nie można cofnąć.</p>
+        {deletion.error && <p className="form-alert" role="alert">{deletion.error.message}</p>}
+        <div className="editor-actions"><button className="secondary-button" disabled={deletion.isPending} onClick={()=>setConfirmation(null)}>Anuluj</button>
+          <button className="danger-button" disabled={deletion.isPending} onClick={()=>deletion.mutate()}>{deletion.isPending?'Usuwanie…':'Potwierdź usunięcie'}</button>
+        </div>
+      </section>
+    </EditorDialog>}
+  </div>;
 }
