@@ -12,6 +12,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     throw new ApiError(0, 'NETWORK_ERROR', 'Nie można połączyć się z serwerem. Sprawdź połączenie i spróbuj ponownie.');
   }
   if (!response.ok) {
+    if (response.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('mycomap:session-expired'));
     const body = await response.json().catch(() => null);
     throw new ApiError(response.status, body?.code ?? 'HTTP_ERROR', body?.message ?? 'Nie udało się wykonać żądania.', body?.fieldErrors ?? {});
   }

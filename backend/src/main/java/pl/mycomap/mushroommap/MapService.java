@@ -58,15 +58,17 @@ public class MapService {
     }
     public Observation saveObservation(UUID owner, UUID mapId, UUID id, ObservationInput input) {
         map(owner,mapId);
+        var existing = id == null ? null : observation(owner,id);
+        if (existing != null && !existing.mapId().equals(mapId)) throw notFound();
         if (!Double.isFinite(input.latitude()) || !Double.isFinite(input.longitude())) throw invalid("Nieprawidłowe współrzędne.");
-        if (jdbc.queryForObject("SELECT count(*) FROM mushroom_species WHERE id=:id AND is_active",Map.of("id",input.speciesId()),Integer.class) != 1) throw invalid("Wybierz gatunek ze słownika.");
+        if (jdbc.queryForObject("SELECT count(*) FROM mushroom_species WHERE id=:id AND is_active",Map.of("id",input.speciesId()),Integer.class) != 1
+                && (existing == null || existing.speciesId() != input.speciesId())) throw invalid("Wybierz aktywny gatunek ze słownika.");
         var params = new MapSqlParameterSource().addValue("map",mapId).addValue("species",input.speciesId()).addValue("quantity",input.quantity())
                 .addValue("date",input.observedOn()).addValue("description",text(input.description())).addValue("lat",input.latitude()).addValue("lon",input.longitude());
         if (id == null) {
             id = UUID.randomUUID(); params.addValue("id",id);
             jdbc.update("INSERT INTO observations(id,map_id,species_id,quantity,observed_on,description,location) VALUES (:id,:map,:species,:quantity,:date,:description,ST_SetSRID(ST_MakePoint(:lon,:lat),4326))",params);
         } else {
-            if (!observation(owner,id).mapId().equals(mapId)) throw notFound();
             params.addValue("id",id);
             jdbc.update("UPDATE observations SET species_id=:species,quantity=:quantity,observed_on=:date,description=:description,location=ST_SetSRID(ST_MakePoint(:lon,:lat),4326),updated_at=now() WHERE id=:id AND map_id=:map",params);
         }

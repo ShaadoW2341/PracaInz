@@ -16,6 +16,9 @@ public class AppUser {
     @Column(name = "verification_hash", length = 64) private String verificationHash;
     @Column(name = "verification_expires_at") private Instant verificationExpiresAt;
     @Column(name = "verification_sent_at") private Instant verificationSentAt;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 10) private UserRole role = UserRole.USER;
+    @Column(name = "account_enabled", nullable = false) private boolean accountEnabled = true;
+    @Column(name = "auth_version", nullable = false) private int authVersion;
 
     protected AppUser() {}
     public AppUser(String username, String email, String passwordHash) {
@@ -30,6 +33,9 @@ public class AppUser {
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }
     public boolean isEmailVerified() { return emailVerified; }
+    public UserRole getRole() { return role; }
+    public boolean isAccountEnabled() { return accountEnabled; }
+    public int getAuthVersion() { return authVersion; }
     public Instant getVerificationExpiresAt() { return verificationExpiresAt; }
     public Instant getVerificationSentAt() { return verificationSentAt; }
     public void issueVerification(String hash, Instant now) {

@@ -57,7 +57,7 @@ class AuthIntegrationTest {
     void register(String name, boolean activate) throws Exception {
         mvc.perform(post("/api/auth/register").with(csrf()).contentType("application/json")
                         .content(body(name, name + "@example.com", PASSWORD)))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.username").value(name))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.username").value(name)).andExpect(jsonPath("$.role").value("USER"))
                 .andExpect(jsonPath("$.password").doesNotExist()).andExpect(jsonPath("$.passwordHash").doesNotExist());
         if (activate) verifyToken(emailToken());
     }
@@ -112,7 +112,11 @@ class AuthIntegrationTest {
 
     @Test void registrationHashesPasswordAndDoesNotLogIn() throws Exception {
         String name = username();
-        register(name);
+        String forged = body(name,name+"@example.com",PASSWORD).replace("}",",\"role\":\"ADMIN\"}");
+        mvc.perform(post("/api/auth/register").with(csrf()).contentType("application/json").content(forged))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.role").value("USER"));
+        verifyToken(emailToken());
+        assertThat(jdbc.queryForObject("SELECT role FROM app_users WHERE username=?",String.class,name)).isEqualTo("USER");
         String hash = jdbc.queryForObject("SELECT password_hash FROM app_users WHERE username = ?", String.class, name);
         assertThat(hash).startsWith("$2").isNotEqualTo(PASSWORD);
         assertThat(new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().matches(PASSWORD, hash)).isTrue();

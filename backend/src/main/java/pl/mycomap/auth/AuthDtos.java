@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.UUID;
 import pl.mycomap.security.SessionUser;
 import pl.mycomap.user.AppUser;
+import pl.mycomap.user.UserRole;
 
 public final class AuthDtos {
     private AuthDtos() {}
@@ -26,9 +27,9 @@ public final class AuthDtos {
         public LoginRequest { username = username == null ? null : username.trim(); }
         @Override public String toString() { return "LoginRequest[REDACTED]"; }
     }
-    public record UserResponse(UUID id, String username, String email) {
-        public static UserResponse from(AppUser user) { return new UserResponse(user.getId(), user.getUsername(), user.getEmail()); }
-        public static UserResponse from(SessionUser user) { return new UserResponse(user.id(), user.username(), user.email()); }
+    public record UserResponse(UUID id, String username, String email, UserRole role) {
+        public static UserResponse from(AppUser user) { return new UserResponse(user.getId(), user.getUsername(), user.getEmail(),user.getRole()); }
+        public static UserResponse from(SessionUser user) { return new UserResponse(user.id(), user.username(), user.email(),user.role()); }
     }
     public record CsrfResponse(String token, String headerName) {}
     public record VerificationRequest(@NotBlank @Pattern(regexp = "[A-Za-z0-9_-]{43}", message = "Nieprawidłowy link weryfikacyjny.") String token) {

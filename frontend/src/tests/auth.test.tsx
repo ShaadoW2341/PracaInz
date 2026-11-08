@@ -3,7 +3,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from '../app/App';
+import type { ReactNode } from 'react';
 vi.mock('../features/maps/InteractiveMap', () => ({ InteractiveMap: () => <div aria-label="Mapa Twoich znalezisk" /> }));
+vi.mock('../components/EditorDialog', () => ({ EditorDialog: ({label,children}:{label:string;children:ReactNode}) => <div role="dialog" aria-label={label}>{children}</div> }));
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -12,14 +14,17 @@ function show(path = '/app') {
   render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><App /></MemoryRouter></QueryClientProvider>);
 }
 
-function server() {
+function server(role:'USER'|'ADMIN'='USER') {
   let authenticated = false;
-  const user = { id: 'test-user-id', username: 'LesnyStudent', email: 'student@example.com' };
+  const user = { id: 'test-user-id', username: 'LesnyStudent', email: 'student@example.com', role };
   const mock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/auth/me') return Response.json(authenticated ? user : { code: 'UNAUTHENTICATED' }, { status: authenticated ? 200 : 401 });
     if (url === '/api/auth/csrf') return Response.json({ token: 'test-csrf', headerName: 'X-CSRF-TOKEN' });
     if (url === '/api/health') return Response.json({ status: 'UP', application: 'MycoMap', stage: 3 });
     if (url === '/api/species') return Response.json([{id:1,polishName:'Nieznany',latinName:null}]);
+    if (url.startsWith('/api/admin/users?')) return Response.json({items:[{...user,enabled:true,emailVerified:true,createdAt:'2026-10-01T10:00:00Z'}],total:1,page:0,size:20});
+    if (url.startsWith('/api/admin/species?')) return Response.json({items:[{id:1,polishName:'Nieznany',latinName:null,isActive:true}],total:1,page:0,size:20});
+    if (url === '/api/admin/users/test-user-id') return Response.json({code:'LAST_ADMIN',message:'Nie można odebrać dostępu ostatniemu aktywnemu administratorowi.'},{status:409});
     if (url.startsWith('/api/maps?')) return Response.json({items:[{id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0}],total:1,page:0,size:50});
     if (url === '/api/maps/test-map') return Response.json({id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0});
     if (url.startsWith('/api/maps/test-map/observations')) return Response.json({items:[],total:0,page:0,size:20});
@@ -109,4 +114,32 @@ it('po wygaśnięciu linku pozwala poprosić o nowy', async () => {
   fireEvent.change(screen.getByLabelText('Adres e-mail konta'), { target: { value: 'student@example.com' } });
   fireEvent.submit(screen.getByRole('button', { name: 'Wyślij nowy link' }).closest('form')!);
   expect(await screen.findByRole('status')).toHaveTextContent('wysłaliśmy link');
+});
+
+async function logInFromForm() {
+  fireEvent.change(await screen.findByLabelText('Nazwa użytkownika'), { target: { value: 'LesnyStudent' } });
+  fireEvent.change(screen.getByLabelText('Hasło'), { target: { value: 'Lesna-wyprawa-2026' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Zaloguj się' }));
+}
+
+it('zwykły użytkownik nie otwiera administracji nawet przez bezpośredni adres', async () => {
+  const mock = server('USER'); show('/app/admin');
+  await logInFromForm();
+  expect(await screen.findByRole('heading', { name: 'Twoje leśne ścieżki.' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Administracja' })).not.toBeInTheDocument();
+  expect(mock.mock.calls.some(([url]) => url.startsWith('/api/admin/'))).toBe(false);
+});
+
+it('administrator ma panel i widzi odmowę odebrania dostępu ostatniemu administratorowi', async () => {
+  server('ADMIN'); show('/login'); await logInFromForm();
+  fireEvent.click(await screen.findByRole('link', { name: 'Administracja' }));
+  expect(await screen.findByRole('heading', { name: 'Administracja.' })).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', { name: 'Uprawnienia' }));
+  fireEvent.change(screen.getByLabelText('Rola'), { target: { value: 'USER' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Zapisz uprawnienia' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('ostatniemu aktywnemu administratorowi');
+  fireEvent.click(screen.getByRole('button', { name: 'Anuluj' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Słownik gatunków' }));
+  expect(await screen.findByRole('button', { name: 'Edytuj' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Dodaj gatunek' })).toBeEnabled();
 });

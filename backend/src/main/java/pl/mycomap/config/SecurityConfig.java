@@ -23,6 +23,9 @@ import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 import pl.mycomap.common.ApiError;
 import pl.mycomap.security.SessionUser;
 import pl.mycomap.user.UserRepository;
+import pl.mycomap.security.AccountSessionFilter;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import java.io.IOException;
 
 @Configuration
@@ -48,7 +51,7 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, SecurityContextRepository contexts,
-                                           CsrfTokenRepository csrfTokens, ObjectMapper json) throws Exception {
+                                           CsrfTokenRepository csrfTokens, ObjectMapper json, JdbcTemplate jdbc) throws Exception {
         return http.authorizeHttpRequests(auth -> auth
                         // Zachowaj kod 403 przy wewnętrznym przekazaniu błędu CSRF do /error.
                         .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
@@ -56,10 +59,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/verify-email", "/api/auth/resend-verification").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/maps", "/api/maps/**", "/api/observations/**", "/api/photos/**", "/api/species").authenticated()
                         .anyRequest().denyAll())
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
                 .securityContext(context -> context.securityContextRepository(contexts))
+                .addFilterAfter(new AccountSessionFilter(jdbc,json), SecurityContextHolderFilter.class)
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint((request, response, exception) -> write(json, response, 401,
                                 new ApiError("UNAUTHENTICATED", "Zaloguj się, aby kontynuować.")))

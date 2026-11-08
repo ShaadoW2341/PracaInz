@@ -1,6 +1,6 @@
 import { ApiError, mutate, request } from '../../api/http';
 
-export type User = { id: string; username: string; email: string };
+export type User = { id: string; username: string; email: string; role: 'USER' | 'ADMIN' };
 export type Credentials = { username: string; password: string };
 export type Registration = Credentials & { email: string };
 

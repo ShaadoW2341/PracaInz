@@ -54,7 +54,10 @@ export function ObservationForm({ mapId, species, initial, coordinates, onClose,
   return <section className="card editor-card"><div className="card-heading"><h2>{initial ? 'Edytuj znalezisko' : 'Nowe znalezisko'}</h2></div>
     <p className="editor-intro">{initial ? 'Zmień szczegóły swojego znaleziska.' : coordinates ? 'Miejsce z mapy jest już wybrane. Uzupełnij szczegóły swojego znaleziska.' : 'Zapisz szczegóły znaleziska i pobierz lokalizację z GPS.'}</p>
     <form className="map-form" onSubmit={submit}>
-      <label>Gatunek<select value={draft.speciesId} onChange={e=>setDraft({...draft,speciesId:e.target.value})} disabled={save.isPending}>{species.map(s=><option key={s.id} value={s.id}>{s.polishName}</option>)}</select></label>
+      <label>Gatunek<select value={draft.speciesId} onChange={e=>setDraft({...draft,speciesId:e.target.value})} disabled={save.isPending}>
+        {initial && !species.some(item=>item.id===initial.speciesId) && <option value={initial.speciesId}>{initial.speciesName} (nieaktywny)</option>}
+        {species.map(s=><option key={s.id} value={s.id}>{s.polishName}</option>)}
+      </select></label>
       <div className="form-pair"><label>Data znalezienia<input type="date" required max={today} value={draft.observedOn} onChange={e=>setDraft({...draft,observedOn:e.target.value})} /></label><label>Liczba sztuk<input type="number" required min="1" max="100000" step="1" value={draft.quantity} onChange={e=>setDraft({...draft,quantity:e.target.value})} /></label></div>
       <button className="secondary-button" type="button" onClick={locate} disabled={gpsPending || save.isPending}>{gpsPending ? 'Ustalanie lokalizacji…' : 'Użyj mojej lokalizacji GPS'}</button>
       {gpsError && <p className="form-alert" role="alert">{gpsError}</p>}
