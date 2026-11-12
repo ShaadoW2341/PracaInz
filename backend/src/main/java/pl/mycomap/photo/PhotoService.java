@@ -21,7 +21,8 @@ public class PhotoService {
         this.jdbc = jdbc; this.maps = maps; this.processor = processor;
     }
     public List<Photo> list(UUID owner, UUID observation) {
-        maps.observation(owner, observation);
+        var entry=maps.observation(owner, observation);
+        maps.map(owner,entry.mapId());
         return jdbc.query("SELECT id,width,height,size_bytes FROM observation_photos WHERE observation_id=? ORDER BY created_at,id",
                 (rs,n) -> new Photo(rs.getObject("id",UUID.class),rs.getInt("width"),rs.getInt("height"),rs.getInt("size_bytes")), observation);
     }

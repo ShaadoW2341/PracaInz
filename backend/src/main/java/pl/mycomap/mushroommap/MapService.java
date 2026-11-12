@@ -10,15 +10,18 @@ import pl.mycomap.common.ApiException;
 import java.time.LocalDate;
 import java.util.*;
 import static pl.mycomap.mushroommap.MapDtos.*;
+import pl.mycomap.sharing.MapAccessService;
+import pl.mycomap.sharing.MapAccessService.Access;
+import pl.mycomap.sharing.MapPrecision;
 
 @Service @Transactional
 public class MapService {
     private final NamedParameterJdbcTemplate jdbc;
-    public MapService(NamedParameterJdbcTemplate jdbc) { this.jdbc = jdbc; }
+    private final MapAccessService access;
+    public MapService(NamedParameterJdbcTemplate jdbc,MapAccessService access) { this.jdbc = jdbc; this.access=access; }
 
-    private static final String MAP_SELECT = "SELECT m.*, (SELECT count(*) FROM observations o WHERE o.map_id=m.id) observation_count FROM mushroom_maps m ";
-    private static final String OBS_SELECT = "SELECT o.*,s.polish_name,s.latin_name,ST_Y(o.location) lat,ST_X(o.location) lon FROM observations o JOIN mushroom_species s ON s.id=o.species_id ";
-    private static final RowMapper<MapView> MAP_ROW = (rs,n) -> new MapView(rs.getObject("id",UUID.class),rs.getString("name"),rs.getString("description"),rs.getBoolean("is_default"),rs.getLong("observation_count"));
+    private static final String MAP_SELECT = "SELECT m.*,u.username owner_username, (SELECT count(*) FROM observations o WHERE o.map_id=m.id) observation_count FROM mushroom_maps m JOIN app_users u ON u.id=m.owner_id ";
+    private static final RowMapper<MapView> MAP_ROW = (rs,n) -> new MapView(rs.getObject("id",UUID.class),rs.getString("name"),rs.getString("description"),rs.getBoolean("is_default"),rs.getLong("observation_count"),true,rs.getString("owner_username"),MapPrecision.EXACT);
     private static final RowMapper<Observation> OBS_ROW = (rs,n) -> new Observation(rs.getObject("id",UUID.class),rs.getObject("map_id",UUID.class),rs.getLong("species_id"),rs.getString("polish_name"),rs.getString("latin_name"),rs.getInt("quantity"),rs.getObject("observed_on",LocalDate.class),rs.getString("description"),rs.getDouble("lat"),rs.getDouble("lon"));
 
     public void ensureDefault(UUID owner) {
@@ -34,6 +37,22 @@ public class MapService {
     public MapView map(UUID owner, UUID id) {
         return jdbc.query(MAP_SELECT+"WHERE m.id=:id AND m.owner_id=:owner FOR UPDATE OF m",Map.of("id",id,"owner",owner),MAP_ROW)
                 .stream().findFirst().orElseThrow(this::notFound);
+    }
+    public MapView readMap(UUID actor,UUID id) {
+        var permission=access.read(actor,id);
+        var result=jdbc.query(MAP_SELECT+"WHERE m.id=:id",Map.of("id",id),MAP_ROW).stream().findFirst().orElseThrow(this::notFound);
+        return new MapView(result.id(),result.name(),permission.coarse() ? "" : result.description(),result.isDefault(),result.observationCount(),permission.canEdit(),permission.ownerUsername(),permission.precision());
+    }
+    public Page<MapView> sharedMaps(UUID actor,int page,int size) {
+        pagination(page,size);
+        var params=Map.of("actor",actor,"limit",size,"offset",page*size);
+        String where=" JOIN map_shares share ON share.map_id=m.id WHERE share.shared_with_user_id=:actor AND u.account_enabled AND u.email_verified";
+        long total=jdbc.queryForObject("SELECT count(*) FROM mushroom_maps m JOIN app_users u ON u.id=m.owner_id"+where,params,Long.class);
+        var items=jdbc.query(MAP_SELECT.replace("SELECT m.*,","SELECT m.*,share.precision,")+where+" ORDER BY share.created_at DESC,m.id LIMIT :limit OFFSET :offset",params,(rs,n)->{
+            var precision=MapPrecision.valueOf(rs.getString("precision"));
+            return new MapView(rs.getObject("id",UUID.class),rs.getString("name"),precision==MapPrecision.COARSE ? "" : rs.getString("description"),rs.getBoolean("is_default"),rs.getLong("observation_count"),false,rs.getString("owner_username"),precision);
+        });
+        return new Page<>(items,total,page,size);
     }
     public MapView createMap(UUID owner, MapInput input) {
         UUID id = UUID.randomUUID();
@@ -53,7 +72,9 @@ public class MapService {
         return jdbc.query("SELECT * FROM mushroom_species WHERE is_active ORDER BY (id=1) DESC,polish_name",(rs,n)->new Species(rs.getLong("id"),rs.getString("polish_name"),rs.getString("latin_name")));
     }
     public Observation observation(UUID owner, UUID id) {
-        return jdbc.query(OBS_SELECT+"JOIN mushroom_maps m ON m.id=o.map_id WHERE o.id=:id AND m.owner_id=:owner",Map.of("id",id,"owner",owner),OBS_ROW)
+        UUID map=jdbc.query("SELECT map_id FROM observations WHERE id=:id",Map.of("id",id),(rs,n)->rs.getObject(1,UUID.class)).stream().findFirst().orElseThrow(this::notFound);
+        var permission=access.read(owner,map);
+        return jdbc.query(observationSelect(permission)+"WHERE o.id=:id",Map.of("id",id),OBS_ROW)
                 .stream().findFirst().orElseThrow(this::notFound);
     }
     public Observation saveObservation(UUID owner, UUID mapId, UUID id, ObservationInput input) {
@@ -82,22 +103,25 @@ public class MapService {
         jdbc.update("DELETE FROM observations WHERE id=:id",Map.of("id",id));
     }
     public Page<Observation> observations(UUID owner, UUID map, Long species, LocalDate from, LocalDate to, String bbox, int page, int size) {
-        map(owner,map); pagination(page,size);
+        var permission=access.read(owner,map); pagination(page,size);
         var params = new MapSqlParameterSource("map",map).addValue("limit",size).addValue("offset",page*size);
-        String where = filter(params,species,from,to,bbox);
+        String where = filter(params,species,from,to,bbox,permission);
         long total = jdbc.queryForObject("SELECT count(*) FROM observations o "+where,params,Long.class);
-        var items = jdbc.query(OBS_SELECT+where+" ORDER BY o.observed_on DESC,o.created_at DESC,o.id LIMIT :limit OFFSET :offset",params,OBS_ROW);
+        var items = jdbc.query(observationSelect(permission)+where+" ORDER BY o.observed_on DESC,o.created_at DESC,o.id LIMIT :limit OFFSET :offset",params,OBS_ROW);
         return new Page<>(items,total,page,size);
     }
     public GeoJson geoJson(UUID owner, UUID map, Long species, LocalDate from, LocalDate to, String bbox) {
-        map(owner,map);
+        var permission=access.read(owner,map);
         if (bbox == null || bbox.isBlank()) throw invalid("Wskaż obszar mapy.");
         var params = new MapSqlParameterSource("map",map);
-        var rows = jdbc.query(OBS_SELECT+filter(params,species,from,to,bbox)+" ORDER BY o.id LIMIT 1001",params,OBS_ROW);
+        var rows = jdbc.query(observationSelect(permission)+filter(params,species,from,to,bbox,permission)+" ORDER BY o.id LIMIT 1001",params,OBS_ROW);
         var features = rows.stream().limit(1000).map(o -> new Feature("Feature",o.id(),new Geometry("Point",List.of(o.longitude(),o.latitude())),Map.<String,Object>of("id",o.id(),"speciesName",o.speciesName(),"quantity",o.quantity(),"observedOn",o.observedOn()))).toList();
         return new GeoJson("FeatureCollection",features,rows.size()>1000,1000);
     }
-    private String filter(MapSqlParameterSource params, Long species, LocalDate from, LocalDate to, String bbox) {
+    private String observationSelect(Access permission) {
+        return "SELECT o.id,o.map_id,o.species_id,o.quantity,o.observed_on,"+(permission.coarse() ? "''::text" : "o.description")+" description,s.polish_name,s.latin_name,ST_Y("+permission.locationSql()+") lat,ST_X("+permission.locationSql()+") lon FROM observations o JOIN mushroom_species s ON s.id=o.species_id ";
+    }
+    private String filter(MapSqlParameterSource params, Long species, LocalDate from, LocalDate to, String bbox,Access permission) {
         if (from != null && to != null && from.isAfter(to)) throw invalid("Początek zakresu dat musi poprzedzać koniec.");
         String sql = "WHERE o.map_id=:map";
         if (species != null) { sql+=" AND o.species_id=:species"; params.addValue("species",species); }
@@ -109,7 +133,7 @@ public class MapService {
             catch (NumberFormatException e) { throw invalid("Nieprawidłowy obszar mapy."); }
             if (b.length != 4 || Arrays.stream(b).anyMatch(v -> !Double.isFinite(v)) || b[0]<-180 || b[2]>180 || b[1]<-90 || b[3]>90 || b[0]>=b[2] || b[1]>=b[3] || b[2]-b[0]>120 || b[3]-b[1]>80) throw invalid("Nieprawidłowy lub zbyt duży obszar. Przybliż mapę.");
             params.addValue("west",b[0]).addValue("south",b[1]).addValue("east",b[2]).addValue("north",b[3]);
-            sql+=" AND o.location && ST_MakeEnvelope(:west,:south,:east,:north,4326)";
+            sql+=" AND "+permission.locationSql()+" && ST_MakeEnvelope(:west,:south,:east,:north,4326)";
         }
         return sql;
     }

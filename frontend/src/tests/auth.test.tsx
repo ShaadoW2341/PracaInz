@@ -20,13 +20,13 @@ function server(role:'USER'|'ADMIN'='USER') {
   const mock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/auth/me') return Response.json(authenticated ? user : { code: 'UNAUTHENTICATED' }, { status: authenticated ? 200 : 401 });
     if (url === '/api/auth/csrf') return Response.json({ token: 'test-csrf', headerName: 'X-CSRF-TOKEN' });
-    if (url === '/api/health') return Response.json({ status: 'UP', application: 'MycoMap', stage: 3 });
+    if (url === '/api/health') return Response.json({ status: 'UP', application: 'MycoMap', stage: 4 });
     if (url === '/api/species') return Response.json([{id:1,polishName:'Nieznany',latinName:null}]);
     if (url.startsWith('/api/admin/users?')) return Response.json({items:[{...user,enabled:true,emailVerified:true,createdAt:'2026-10-01T10:00:00Z'}],total:1,page:0,size:20});
     if (url.startsWith('/api/admin/species?')) return Response.json({items:[{id:1,polishName:'Nieznany',latinName:null,isActive:true}],total:1,page:0,size:20});
     if (url === '/api/admin/users/test-user-id') return Response.json({code:'LAST_ADMIN',message:'Nie można odebrać dostępu ostatniemu aktywnemu administratorowi.'},{status:409});
-    if (url.startsWith('/api/maps?')) return Response.json({items:[{id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0}],total:1,page:0,size:50});
-    if (url === '/api/maps/test-map') return Response.json({id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0});
+    if (url.startsWith('/api/maps?')) return Response.json({items:[{id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0,canEdit:true,ownerUsername:'LesnyStudent',precision:'EXACT'}],total:1,page:0,size:50});
+    if (url === '/api/maps/test-map') return Response.json({id:'test-map',name:'Moje znaleziska',description:'',isDefault:true,observationCount:0,canEdit:true,ownerUsername:'LesnyStudent',precision:'EXACT'});
     if (url.startsWith('/api/maps/test-map/observations')) return Response.json({items:[],total:0,page:0,size:20});
     if (url === '/api/auth/login') {
       expect(new Headers(init?.headers).get('X-CSRF-TOKEN')).toBe('test-csrf');

@@ -19,6 +19,6 @@ class HealthControllerTest {
         var response = new HealthController(endpoint).health();
 
         assertThat(response.getStatusCode().value()).isEqualTo(503);
-        assertThat(response.getBody()).isEqualTo(new HealthController.HealthResponse("DOWN", "MycoMap", 3));
+        assertThat(response.getBody()).isEqualTo(new HealthController.HealthResponse("DOWN", "MycoMap", 4));
     }
 }

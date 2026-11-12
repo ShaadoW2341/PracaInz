@@ -59,6 +59,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login", "/api/auth/verify-email", "/api/auth/resend-verification").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/users/search").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/maps", "/api/maps/**", "/api/observations/**", "/api/photos/**", "/api/species").authenticated()
                         .anyRequest().denyAll())

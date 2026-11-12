@@ -10,7 +10,8 @@ export function EditorDialog({ label, busy = false, onClose, children }: {
     const previousOverflow = document.body.style.overflow;
     element.showModal();
     document.body.style.overflow = 'hidden';
-    element.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea')?.focus();
+    element.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea')?.focus({ preventScroll: true });
+    element.scrollTop = 0;
     return () => {
       element.close();
       document.body.style.overflow = previousOverflow;

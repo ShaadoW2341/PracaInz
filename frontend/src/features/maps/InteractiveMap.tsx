@@ -4,14 +4,14 @@ import type { Features } from './api';
 import type { Coordinates } from './ObservationForm';
 
 const empty = { type: 'FeatureCollection' as const, features: [] };
-export function InteractiveMap({ data, selectedId, focus, mapId, onPick, onSelect, onBounds }: {
-  data?: Features; selectedId?: string; focus?: Coordinates; mapId?: string;
+export function InteractiveMap({ data, selectedId, focus, mapId, readOnly=false, onPick, onSelect, onBounds }: {
+  data?: Features; selectedId?: string; focus?: Coordinates; mapId?: string; readOnly?: boolean;
   onPick: (point: Coordinates) => void; onSelect: (id: string) => void; onBounds: (bbox: string) => void;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<LibreMap | null>(null);
   const popup = useRef<Popup | null>(null);
-  const callbacks = useRef({onPick,onSelect,onBounds}); callbacks.current={onPick,onSelect,onBounds};
+  const callbacks = useRef({onPick,onSelect,onBounds,readOnly}); callbacks.current={onPick,onSelect,onBounds,readOnly};
   const currentData = useRef(data); currentData.current=data;
   const [ready,setReady] = useState(false);
   const [error,setError] = useState('');
@@ -50,6 +50,7 @@ export function InteractiveMap({ data, selectedId, focus, mapId, onPick, onSelec
             .then(zoom=>{if(!disposed)view.easeTo({center,zoom});}).catch(()=>setError('Nie udało się rozwinąć klastra. Przybliż mapę ręcznie.'));
         } else if (hit?.properties?.id) callbacks.current.onSelect(String(hit.properties.id));
         else {
+          if(callbacks.current.readOnly)return;
           const location=event.lngLat.wrap();
           const point={latitude:Number(location.lat.toFixed(6)),longitude:Number(location.lng.toFixed(6))};
           const content=document.createElement('div');
@@ -72,7 +73,7 @@ export function InteractiveMap({ data, selectedId, focus, mapId, onPick, onSelec
     }).catch(()=>{if(!disposed)setError('Mapa jest niedostępna. Przeglądarka musi obsługiwać WebGL. Możesz użyć lokalizacji GPS w formularzu.');});
     return ()=>{disposed=true;popup.current?.remove();popup.current=null;map.current?.remove();map.current=null;};
   },[styleUrl]);
-  useEffect(()=>{popup.current?.remove();popup.current=null;},[mapId,selectedId]);
+  useEffect(()=>{popup.current?.remove();popup.current=null;},[mapId,selectedId,readOnly]);
   useEffect(()=>{if(ready && map.current?.getSource('findings'))(map.current.getSource('findings') as GeoJSONSource).setData(data ?? empty);},[data,ready]);
   useEffect(()=>{if(ready && map.current?.getLayer('finding-points'))map.current.setPaintProperty('finding-points','circle-color',['case',['==',['get','id'],selectedId ?? ''],'#b7803d','#64834c']);},[selectedId,ready]);
   useEffect(()=>{if(ready && focus)map.current?.easeTo({center:[focus.longitude,focus.latitude],zoom:Math.max(map.current.getZoom(),10)});},[focus?.latitude,focus?.longitude,ready]);
@@ -80,6 +81,6 @@ export function InteractiveMap({ data, selectedId, focus, mapId, onPick, onSelec
     {!styleUrl && <div className="map-empty"><h3>Mapa jest niedostępna</h3><p>Możesz nadal dodać znalezisko, korzystając z lokalizacji GPS w formularzu.</p></div>}
     {styleUrl && !ready && !error && <span className="map-label" role="status">Wczytywanie mapy…</span>}
     {error && <p className="map-error" role="alert">{error}</p>}
-    {ready && <span className="map-label">Kliknij mapę, a następnie „Dodaj znalezisko”</span>}
+    {ready && <span className="map-label">{readOnly ? 'Wybierz znacznik, aby zobaczyć znalezisko' : 'Kliknij mapę, a następnie „Dodaj znalezisko”'}</span>}
   </section>;
 }

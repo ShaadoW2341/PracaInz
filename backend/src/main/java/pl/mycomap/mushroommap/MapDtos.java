@@ -4,11 +4,13 @@ import jakarta.validation.constraints.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
+import pl.mycomap.sharing.MapPrecision;
 
 public final class MapDtos {
     private MapDtos() {}
     public record MapInput(@NotBlank(message="Podaj nazwę mapy.") @Size(max=100) String name, @Size(max=1000) String description) {}
-    public record MapView(UUID id, String name, String description, boolean isDefault, long observationCount) {}
+    public record MapView(UUID id, String name, String description, boolean isDefault, long observationCount,
+                          boolean canEdit,String ownerUsername,MapPrecision precision) {}
     public record Species(long id, String polishName, String latinName) {}
     public record ObservationInput(
             @NotNull Long speciesId,

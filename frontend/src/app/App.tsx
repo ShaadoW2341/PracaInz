@@ -6,6 +6,7 @@ import { Home } from './Home';
 import { EmailVerificationPage } from '../features/auth/EmailVerificationPage';
 import { AdminRoute } from '../features/admin/AdminRoute';
 import { AdminPage } from '../features/admin/AdminPage';
+import { SharedMaps } from '../features/sharing/SharedMaps';
 
 export function App() {
   return <AuthProvider><Routes>
@@ -17,6 +18,7 @@ export function App() {
       <Route path="/app" element={<Home />} />
       <Route path="/app/maps" element={<Home />} />
       <Route path="/app/maps/:id" element={<Home />} />
+      <Route path="/app/shared" element={<SharedMaps />} />
       <Route element={<AdminRoute />}><Route path="/app/admin" element={<AdminPage />} /></Route>
     </Route>
     <Route path="*" element={<main className="not-found"><p className="eyebrow">404 / POZA SZLAKIEM</p><h1>Tego miejsca nie ma na mapie.</h1><Link to="/app">Wróć na początek →</Link></main>} />

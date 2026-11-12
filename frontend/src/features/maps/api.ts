@@ -1,6 +1,6 @@
 import { mutate, request } from '../../api/http';
 
-export type MushroomMap = { id: string; name: string; description: string; isDefault: boolean; observationCount: number };
+export type MushroomMap = { id: string; name: string; description: string; isDefault: boolean; observationCount: number; canEdit: boolean; ownerUsername: string; precision: 'COARSE' | 'EXACT' };
 export type Species = { id: number; polishName: string; latinName: string | null };
 export type Observation = { id: string; mapId: string; speciesId: number; speciesName: string; latinName: string | null; quantity: number; observedOn: string; description: string; latitude: number; longitude: number };
 export type ObservationInput = Pick<Observation, 'speciesId' | 'quantity' | 'observedOn' | 'description' | 'latitude' | 'longitude'>;
@@ -14,6 +14,7 @@ function query(filters: Filters, extra: Record<string,string> = {}) {
   return params.toString();
 }
 export const maps = (page: number) => request<Page<MushroomMap>>(`/api/maps?page=${page}&size=50`);
+export const sharedMaps = (page: number) => request<Page<MushroomMap>>(`/api/maps/shared-with-me?page=${page}&size=50`);
 export const getMap = (id: string) => request<MushroomMap>(`/api/maps/${id}`);
 export const species = () => request<Species[]>('/api/species');
 export const saveMap = (body: { name: string; description: string }, id?: string) => mutate<MushroomMap>(id ? `/api/maps/${id}` : '/api/maps', body, id ? 'PATCH' : 'POST');

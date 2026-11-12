@@ -18,7 +18,7 @@ public class HealthController {
     public ResponseEntity<HealthResponse> health() {
         boolean ready = Status.UP.equals(health.health().getStatus());
         return ResponseEntity.status(ready ? 200 : 503)
-                .body(new HealthResponse(ready ? "UP" : "DOWN", "MycoMap", 3));
+                .body(new HealthResponse(ready ? "UP" : "DOWN", "MycoMap", 4));
     }
 
     public record HealthResponse(String status, String application, int stage) {}
